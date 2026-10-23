@@ -23,6 +23,7 @@ import Attendance from "./pages/Attendance";
 import ModifyAttendance from "./pages/ModifyAttendance";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import LiveDetection from "./pages/LiveDetection";
 
 const queryClient = new QueryClient();
 // Development-only convenience; production builds continue to require Supabase auth.
@@ -128,6 +129,7 @@ function AppRoutes() {
         {/* Existing pages */}
         <Route path="/heatmap" element={<Heatmap />} />
         <Route path="/safety" element={<Safety />} />
+        <Route path="/live-detection" element={<LiveDetection />} />
 
         {/* Today's Attendance */}
         <Route path="/attendance" element={<Attendance />} />

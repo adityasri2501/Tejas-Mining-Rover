@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rover BLE Location</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Segoe UI, sans-serif; background: #101820; color: #f4f7fa; }
+    body { margin: 0; padding: 28px; }
+    main { max-width: 1000px; margin: auto; }
+    h1 { margin: 0 0 8px; } .muted { color: #9eacb9; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 14px; margin: 24px 0; }
+    .card, section { background: #1b2732; border: 1px solid #354453; border-radius: 12px; padding: 18px; }
+    .label { color: #aab9c6; font-size: 13px; } .value { font-size: 22px; font-weight: 700; margin-top: 9px; }
+    #status.live { color: #39d98a; } #status.stale { color: #ffbd4a; } #status.waiting { color: #9eacb9; }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; } th,td { text-align:left; border-bottom:1px solid #354453; padding:11px 8px; }
+    th { color:#aab9c6; font-size:12px; text-transform:uppercase; }
+    @media(max-width:600px) { body { padding:16px; } table { font-size:13px; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Rover BLE Location</h1>
+  <div class="muted">Nearest configured phone node, last scan time, signal strength, and location changes.</div>
+  <div class="grid">
+    <div class="card"><div class="label">Current location</div><div class="value" id="location">Waiting for rover</div></div>
+    <div class="card"><div class="label">Last fetched</div><div class="value" id="fetched">—</div></div>
+    <div class="card"><div class="label">Signal (RSSI)</div><div class="value" id="rssi">—</div></div>
+    <div class="card"><div class="label">Connection</div><div class="value" id="status" class="waiting">Waiting</div><div class="label" id="visible"></div></div>
+  </div>
+  <section>
+    <h2>Location history</h2>
+    <div class="muted">A row is added when the rover's stable nearest node changes.</div>
+    <table><thead><tr><th>Time</th><th>Node</th><th>Signal</th></tr></thead><tbody id="history"><tr><td colspan="3">Waiting for scans…</td></tr></tbody></table>
+  </section>
+</main>
+<script>
+  const roverId = new URLSearchParams(location.search).get("rover_id") || "rover-01";
+  const byId = (id) => document.getElementById(id);
+  const prettyTime = (value) => value ? new Date(value).toLocaleString() : "—";
+  async function refresh() {
+    try {
+      const [stateResponse, historyResponse] = await Promise.all([
+        fetch(`/api/rovers/${encodeURIComponent(roverId)}/location`, { cache: "no-store" }),
+        fetch(`/api/rovers/${encodeURIComponent(roverId)}/history?limit=50`, { cache: "no-store" }),
+      ]);
+      if (!stateResponse.ok || !historyResponse.ok) throw new Error("API request failed");
+      const state = await stateResponse.json();
+      const history = await historyResponse.json();
+      byId("location").textContent = state.label ? `${state.label} — ${state.location}` : "No location yet";
+      byId("fetched").textContent = prettyTime(state.last_fetched_at);
+      byId("rssi").textContent = state.rssi == null ? "—" : `${state.rssi} dBm`;
+      byId("visible").textContent = `${state.visible_nodes || 0} node(s) visible in last scan`;
+      const age = state.last_fetched_at ? (Date.now() - new Date(state.last_fetched_at).getTime()) / 1000 : Infinity;
+      const status = byId("status");
+      if (age > 20) { status.textContent = state.last_fetched_at ? "Stale" : "Waiting"; status.className = `value ${state.last_fetched_at ? "stale" : "waiting"}`; }
+      else if (!state.visible_nodes) { status.textContent = "No nodes visible"; status.className = "value stale"; }
+      else { status.textContent = "Live"; status.className = "value live"; }
+      byId("history").innerHTML = history.length ? history.map((item) => `<tr><td>${prettyTime(item.fetched_at)}</td><td>${item.node_label}</td><td>${item.rssi == null ? "—" : `${item.rssi} dBm`}</td></tr>`).join("") : '<tr><td colspan="3">No location changes recorded yet.</td></tr>';
+    } catch (error) {
+      byId("status").textContent = "Server unavailable";
+      byId("status").className = "value stale";
+    }
+  }
+  void refresh();
+  window.setInterval(refresh, 2000);
+</script>
+</body>
+</html>

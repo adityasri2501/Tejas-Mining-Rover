@@ -9,6 +9,7 @@ import {
   ClipboardEdit,
   LogOut,
   ShieldCheck,
+  Scan,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
@@ -39,6 +40,13 @@ const Index = () => {
       icon: Camera,
       action: () => navigate("/safety"),
       buttonText: "Analyze & Register",
+    },
+    {
+      title: "Live Human Detection",
+      description: "View the live rover camera feed with OpenCV person detection.",
+      icon: Scan,
+      action: () => navigate("/live-detection"),
+      buttonText: "Open Live Detection",
     },
     {
       title: "Rover",

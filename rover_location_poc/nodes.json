@@ -1,0 +1,7 @@
+{
+  "nodes": [
+    { "node_id": "node-a", "advertisement_name": "ROVER-NODE-A", "label": "Node A", "location": "Set Node A location" },
+    { "node_id": "node-b", "advertisement_name": "ROVER-NODE-B", "label": "Node B", "location": "Set Node B location" },
+    { "node_id": "node-c", "advertisement_name": "ROVER-NODE-C", "label": "Node C", "location": "Set Node C location" }
+  ]
+}

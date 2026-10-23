@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Bot, Camera, ExternalLink } from "lucide-react";
+import { Bot, Camera, ExternalLink, Scan } from "lucide-react";
 import { ROVER_URL } from "@/lib/rover";
 
 const Navigation = () => {
@@ -30,6 +30,13 @@ const Navigation = () => {
                 Rover
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
+              <Link
+                to="/live-detection"
+                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${isActive("/live-detection") ? "bg-primary text-primary-foreground" : "text-header-foreground hover:bg-secondary"}`}
+              >
+                <Scan className="w-4 h-4" />
+                Human Detection
+              </Link>
               <Link
                 to="/safety"
                 className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${

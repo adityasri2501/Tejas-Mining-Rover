@@ -132,7 +132,7 @@ function createPPEVoiceMessage(ppe: PPE): string {
   return messages.join(" ");
 }
 
-function getPPEAlert(ppe: PPE): { message: string; className: string } {
+function getPPEAlert(ppe: PPE): { message: string; className: string; animationClass?: string } {
   const missing = PPE_LABELS.filter(({ key }) => ppe[key].status === "missing");
   const uncertain = PPE_LABELS.filter(({ key }) => ppe[key].status === "uncertain");
 
@@ -150,15 +150,15 @@ function getPPEAlert(ppe: PPE): { message: string; className: string } {
   const message = [missingMessage, uncertainMessage].filter(Boolean).join(" — ");
 
   if (missing.some(({ key }) => key === "helmet")) {
-    return { message, className: "border-red-500 bg-red-600 text-white" };
+    return { message, className: "border-red-500 bg-red-600 text-white", animationClass: "ppe-danger-flash" };
   }
 
   if (missing.length > 1 || uncertain.length > 0) {
-    return { message, className: "border-yellow-400 bg-yellow-300 text-yellow-950" };
+    return { message, className: "border-yellow-400 bg-yellow-300 text-yellow-950", animationClass: "ppe-warning-flash" };
   }
 
   if (missing.length === 1 && missing[0].key === "safety_goggles") {
-    return { message, className: "border-green-500 bg-green-600 text-white" };
+    return { message, className: "border-green-500 bg-green-600 text-white", animationClass: "ppe-goggle-flash" };
   }
 
   return { message, className: "border-yellow-400 bg-yellow-300 text-yellow-950" };
@@ -1123,7 +1123,7 @@ const Safety = () => {
                     <div
                       role="alert"
                       aria-live="assertive"
-                      className={`animate-pulse rounded-lg border-2 px-4 py-3 text-center text-lg font-extrabold shadow-lg ${alert.className}`}
+                      className={`${alert.animationClass ?? ""} rounded-lg border-2 px-4 py-3 text-center text-lg font-extrabold shadow-lg ${alert.className}`}
                     >
                       {alert.message}
                     </div>

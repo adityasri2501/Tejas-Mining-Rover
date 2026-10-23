@@ -2,6 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes ppe-warning-flash {
+  0%, 100% {
+    background-color: hsl(48 100% 55%);
+    border-color: hsl(43 100% 45%);
+    color: hsl(32 90% 12%);
+    box-shadow: 0 0 0 0 hsl(48 100% 55% / 0.15);
+  }
+  50% {
+    background-color: hsl(35 100% 35%);
+    border-color: hsl(48 100% 65%);
+    color: white;
+    box-shadow: 0 0 22px 6px hsl(48 100% 55% / 0.55);
+  }
+}
+
+@keyframes ppe-danger-flash {
+  0%, 100% { background-color: hsl(0 75% 48%); box-shadow: 0 0 0 0 hsl(0 85% 55% / 0.15); }
+  50% { background-color: hsl(0 85% 30%); box-shadow: 0 0 22px 6px hsl(0 85% 55% / 0.55); }
+}
+
+@keyframes ppe-goggle-flash {
+  0%, 100% { background-color: hsl(142 70% 38%); box-shadow: 0 0 0 0 hsl(142 70% 45% / 0.12); }
+  50% { background-color: hsl(142 75% 24%); box-shadow: 0 0 18px 5px hsl(142 70% 45% / 0.45); }
+}
+
+.ppe-warning-flash { animation: ppe-warning-flash 0.75s steps(2, end) infinite; }
+.ppe-danger-flash { animation: ppe-danger-flash 0.75s steps(2, end) infinite; }
+.ppe-goggle-flash { animation: ppe-goggle-flash 0.9s steps(2, end) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ppe-warning-flash, .ppe-danger-flash, .ppe-goggle-flash { animation: none; }
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
