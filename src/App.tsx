@@ -25,6 +25,8 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+// Development-only convenience; production builds continue to require Supabase auth.
+const AUTH_BYPASS = false;
 
 function ProtectedLayout({
   session,
@@ -33,7 +35,7 @@ function ProtectedLayout({
 }) {
   const location = useLocation();
 
-  if (!session) {
+  if (!AUTH_BYPASS && !session) {
     return (
       <Navigate
         to="/login"
@@ -51,6 +53,11 @@ function AppRoutes() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (AUTH_BYPASS) {
+      setLoading(false);
+      return;
+    }
+
     let mounted = true;
 
     const {
@@ -105,7 +112,7 @@ function AppRoutes() {
       <Route
         path="/login"
         element={
-          session ? (
+          AUTH_BYPASS || session ? (
             <Navigate to="/" replace />
           ) : (
             <Login />

@@ -33,6 +33,7 @@ import {
   ClipboardEdit,
 
   LogOut,
+  Volume2,
 
 } from "lucide-react";
 
@@ -116,6 +117,52 @@ const PPE_LABELS: { key: keyof PPE; label: string }[] = [
 
 ];
 
+function createPPEVoiceMessage(ppe: PPE): string {
+  const missing = PPE_LABELS.filter(({ key }) => ppe[key].status === "missing");
+  const uncertain = PPE_LABELS.filter(({ key }) => ppe[key].status === "uncertain");
+
+  if (missing.length === 0 && uncertain.length === 0) return "Good to go.";
+
+  const messages = [
+    ...missing.map(({ label }) => `${label} not present.`),
+    ...(uncertain.length > 0
+      ? [`Unable to verify ${uncertain.map(({ label }) => label).join(" and ")}.`]
+      : []),
+  ];
+  return messages.join(" ");
+}
+
+function getPPEAlert(ppe: PPE): { message: string; className: string } {
+  const missing = PPE_LABELS.filter(({ key }) => ppe[key].status === "missing");
+  const uncertain = PPE_LABELS.filter(({ key }) => ppe[key].status === "uncertain");
+
+  if (missing.length === 0 && uncertain.length === 0) {
+    return {
+      message: "Good to go",
+      className: "border-green-500 bg-green-600 text-white",
+    };
+  }
+
+  const missingMessage = missing.map(({ label }) => `${label} not present`).join(" · ");
+  const uncertainMessage = uncertain.length > 0
+    ? `Unable to verify: ${uncertain.map(({ label }) => label).join(" · ")}`
+    : "";
+  const message = [missingMessage, uncertainMessage].filter(Boolean).join(" — ");
+
+  if (missing.some(({ key }) => key === "helmet")) {
+    return { message, className: "border-red-500 bg-red-600 text-white" };
+  }
+
+  if (missing.length > 1 || uncertain.length > 0) {
+    return { message, className: "border-yellow-400 bg-yellow-300 text-yellow-950" };
+  }
+
+  if (missing.length === 1 && missing[0].key === "safety_goggles") {
+    return { message, className: "border-green-500 bg-green-600 text-white" };
+  }
+
+  return { message, className: "border-yellow-400 bg-yellow-300 text-yellow-950" };
+}
 const Safety = () => {
 
   const navigate = useNavigate();
@@ -303,6 +350,20 @@ const Safety = () => {
 
   };
 
+  const speakPPE = (ppe: PPE) => {
+    if (!("speechSynthesis" in window)) {
+      toast.error("Voice alerts are not supported in this browser.");
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const message = createPPEVoiceMessage(ppe);
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.lang = "en-US";
+    utterance.rate = 0.95;
+    window.speechSynthesis.speak(utterance);
+  };
+
   const analyzeImage = async () => {
 
     if (!imageFile || !selectedImage) {
@@ -393,6 +454,7 @@ const Safety = () => {
 
       });
 
+      speakPPE(detected.ppe);
       toast.success("PPE analysis completed. Review the results.");
 
     } catch (error) {
@@ -1055,11 +1117,27 @@ const Safety = () => {
 
               <div className="space-y-4 border-t border-border pt-5">
 
+                {(() => {
+                  const alert = getPPEAlert(analysis.workers[0].ppe);
+                  return (
+                    <div
+                      role="alert"
+                      aria-live="assertive"
+                      className={`animate-pulse rounded-lg border-2 px-4 py-3 text-center text-lg font-extrabold shadow-lg ${alert.className}`}
+                    >
+                      {alert.message}
+                    </div>
+                  );
+                })()}
                 <h3 className="font-semibold text-foreground">
 
                   PPE Assessment
 
                 </h3>
+
+                <Button type="button" variant="outline" onClick={() => speakPPE(analysis.workers[0].ppe)}>
+                  <Volume2 className="mr-2 h-4 w-4" /> Replay voice alert
+                </Button>
 
                 {PPE_LABELS.map(({ key, label }) => {
 
