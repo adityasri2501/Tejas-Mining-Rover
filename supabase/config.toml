@@ -1,0 +1,7 @@
+project_id = "pwqmbqjhnyvkrgwqgksj"
+
+[functions.heatmap-data]
+verify_jwt = false
+
+[functions.analyze-photo]
+verify_jwt = false

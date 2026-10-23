@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* MineScan Industrial Theme - Black/Gray/Blue */
+    --background: 210 15% 12%;
+    --foreground: 210 10% 98%;
+
+    --card: 210 12% 16%;
+    --card-foreground: 210 10% 98%;
+
+    --popover: 210 12% 14%;
+    --popover-foreground: 210 10% 98%;
+
+    /* Blue accent color - primary action color */
+    --primary: 210 100% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Gray secondary */
+    --secondary: 210 8% 25%;
+    --secondary-foreground: 210 10% 98%;
+
+    /* Muted gray backgrounds */
+    --muted: 210 10% 20%;
+    --muted-foreground: 210 10% 65%;
+
+    --accent: 210 100% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Risk colors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --warning: 45 95% 55%;
+    --success: 142 71% 45%;
+
+    --border: 210 10% 25%;
+    --input: 210 10% 20%;
+    --ring: 210 100% 55%;
+
+    --radius: 0.5rem;
+
+    /* Header - pure black */
+    --header: 0 0% 0%;
+    --header-foreground: 0 0% 100%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
