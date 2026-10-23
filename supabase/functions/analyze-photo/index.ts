@@ -10,6 +10,58 @@ const corsHeaders = {
   "Content-Type": "application/json",
 };
 
+const GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.8-flash"];
+const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
+class GeminiRequestError extends Error {}
+
+async function generateWithGemini(apiKey: string, body: unknown) {
+  const failures: string[] = [];
+
+  for (const model of GEMINI_MODELS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25_000);
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        },
+      );
+      const result = await response.json();
+
+      if (response.ok) return result;
+
+      const message = result.error?.message || `Gemini returned status ${response.status}.`;
+      console.error(`Gemini ${model} error:`, response.status, message);
+      failures.push(`${model}: ${response.status} ${message}`);
+
+      if (!RETRYABLE_STATUS.has(response.status)) {
+        throw new GeminiRequestError(message);
+      }
+    } catch (error) {
+      if (error instanceof GeminiRequestError) throw error;
+      if (error instanceof Error && !failures.some((failure) => failure.includes(error.message))) {
+        const reason = controller.signal.aborted
+          ? "request timed out after 25 seconds"
+          : error.message;
+        failures.push(`${model}: ${reason}`);
+        console.error(`Gemini ${model} request failed:`, reason);
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw new Error(`Gemini models are temporarily unavailable. ${failures.join(" | ")}`);
+}
+
 serve(async (req) => {
   // Handle browser CORS preflight requests.
   if (req.method === "OPTIONS") {
@@ -24,7 +76,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         error: "Method not allowed",
-        hazards: [],
+        workers: [],
       }),
       {
         status: 405,
@@ -43,7 +95,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: "An image is required.",
-          hazards: [],
+          workers: [],
         }),
         {
           status: 400,
@@ -68,73 +120,50 @@ serve(async (req) => {
       );
     }
 
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": geminiApiKey,
-        },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [
-              {
-                text:
-                  "You are a mining safety inspection assistant. " +
-                  "Inspect the image for visible hazards such as missing " +
-                  "personal protective equipment (PPE), structural issues, " +
-                  "equipment problems, spills, and unsafe conditions. " +
-                  "Be specific and cautious. Do not claim that an image " +
-                  "proves a site is safe. Return a JSON object with a " +
-                  "hazards array. Each hazard must contain tag (string), " +
-                  "confidence (number from 0 to 1), and notes (string). " +
-                  "If no hazards are visible, return an empty hazards array. " +
-                  "Visual inspection is not a substitute for an on-site " +
-                  "safety inspection.",
-              },
-            ],
+    const result = await generateWithGemini(geminiApiKey, {
+      systemInstruction: {
+        parts: [
+          {
+            text:
+              "You are a worker PPE visual inspection assistant. " +
+              "Inspect the visible person in this worker photo ONLY for " +
+              "these five items: safety helmet, safety vest, gloves, " +
+              "safety boots, and safety goggles. Do not report unrelated " +
+              "site hazards or tools. Return exactly a JSON object shaped " +
+              "as {workers:[{worker_id:1,ppe:{helmet:{status,evidence}," +
+              "safety_vest:{status,evidence},gloves:{status,evidence}," +
+              "safety_boots:{status,evidence},safety_goggles:{status,evidence}}}]} . " +
+              "Each status must be present, missing, or uncertain. Mark " +
+              "present only when the item is visibly worn. Mark missing " +
+              "only when the relevant body area is clearly visible and the " +
+              "item is absent. If the area is cropped, occluded, too small, " +
+              "or unclear, mark uncertain. Give a short visual evidence " +
+              "string for every item. If no person is visible, return " +
+              "{workers:[]}. Never infer PPE from job role or background.",
           },
-          contents: [
+        ],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [
             {
-              role: "user",
-              parts: [
-                {
-                  text:
-                    `Analyze this mining site photo for visible safety ` +
-                    `hazards. Additional context: ${notes || "None provided"}.`,
-                },
-                {
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: image,
-                  },
-                },
-              ],
+              text:
+                `Assess the worker's PPE only. Additional context: ${notes || "None provided"}.`,
+            },
+            {
+              inline_data: {
+                mime_type: mimeType,
+                data: image,
+              },
             },
           ],
-          generationConfig: {
-            responseMimeType: "application/json",
-          },
-        }),
+        },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
       },
-    );
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      const message =
-        result.error?.message ||
-        `Gemini API returned status ${response.status}.`;
-
-      console.error(
-        "Gemini API error:",
-        response.status,
-        message,
-      );
-
-      throw new Error(message);
-    }
+    });
 
     const aiResponse = result.candidates?.[0]?.content?.parts
       ?.map((part: { text?: string }) => part.text || "")
@@ -149,41 +178,30 @@ serve(async (req) => {
 
     const parsed = JSON.parse(aiResponse);
 
-    const hazards = Array.isArray(parsed.hazards)
-      ? parsed.hazards
-          .filter(
-            (hazard: unknown) =>
-              typeof hazard === "object" && hazard !== null,
-          )
-          .map(
-            (
-              hazard: {
-                tag?: unknown;
-                confidence?: unknown;
-                notes?: unknown;
-              },
-            ) => ({
-              tag:
-                typeof hazard.tag === "string"
-                  ? hazard.tag
-                  : "Safety concern",
-              confidence:
-                typeof hazard.confidence === "number" &&
-                Number.isFinite(hazard.confidence)
-                  ? Math.max(0, Math.min(1, hazard.confidence))
-                  : 0.5,
-              notes:
-                typeof hazard.notes === "string"
-                  ? hazard.notes
-                  : "Manual review recommended.",
-            }),
-          )
+    const ppeKeys = ["helmet", "safety_vest", "gloves", "safety_boots", "safety_goggles"] as const;
+    const validStatuses = new Set(["present", "missing", "uncertain"]);
+    const workers = Array.isArray(parsed.workers)
+      ? parsed.workers
+          .filter((worker: unknown) => typeof worker === "object" && worker !== null)
+          .slice(0, 1)
+          .map((worker: { ppe?: Record<string, { status?: unknown; evidence?: unknown }> }) => {
+            const ppe = Object.fromEntries(ppeKeys.map((key) => {
+              const item = worker.ppe?.[key];
+              const status = typeof item?.status === "string" && validStatuses.has(item.status)
+                ? item.status
+                : "uncertain";
+              return [key, {
+                status,
+                evidence: typeof item?.evidence === "string" ? item.evidence : "Not clear in the image; manual check recommended.",
+              }];
+            }));
+            return { worker_id: 1, ppe };
+          })
       : [];
 
     return new Response(
       JSON.stringify({
-        hazards,
-        annotatedImage: `data:${mimeType};base64,${image}`,
+        workers,
       }),
       {
         status: 200,
@@ -201,7 +219,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         error: errorMessage,
-        hazards: [],
+        workers: [],
       }),
       {
         status: 500,
